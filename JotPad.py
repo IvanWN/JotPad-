@@ -120,6 +120,32 @@ save_button.pack(side=LEFT)
 open_button = Button(root, text='Открыть', command=open_file)
 open_button.pack(side=LEFT)
 
+# Функция для поиска и выделения текста
+def search_text():
+    search_string = search_entry.get()
+    if search_string:
+        start_pos = '1.0'
+        while True:
+            # Поиск вхождений заданного текста в текстовом поле
+            start_pos = text_field.search(search_string, start_pos, stopindex=END)
+            if not start_pos:
+                break
+            end_pos = f'{start_pos}+{len(search_string)}c'
+            # Выделение найденного текста в зеленый цвет
+            text_field.tag_add('found', start_pos, end_pos)
+            text_field.tag_configure('found', foreground='green')
+            start_pos = end_pos
+
+# Создание поля ввода и кнопки "поиск"
+search_frame = Frame(root)
+search_frame.pack(fill=X)
+
+search_entry = Entry(search_frame)
+search_entry.pack(side=LEFT, padx=5)
+
+search_button = Button(search_frame, text='Найти', command=search_text)
+search_button.pack(side=LEFT, padx=5)
+
 try:
     # Запуск главного цикла
     root.mainloop()
