@@ -1,6 +1,7 @@
 from tkinter import *
 from tkinter import messagebox
 from tkinter import filedialog
+import re
 
 # Создание тем
 themes = {
@@ -112,6 +113,42 @@ text_field = Text(text_frame,
 text_field.pack(expand=1, fill=BOTH, side=LEFT)
 set_theme("Стандартная")
 
+# Создание стека для хранения истории изменений
+history_stack = []
+
+def save_history():
+    # Сохранение текущего состояния текстового поля в стеке
+    history_stack.append(text_field.get('1.0', 'end'))
+
+def undo_last_action():
+    if len(history_stack) > 1:
+        # Получение текущего состояния текстового поля
+        curr_text = text_field.get('1.0', 'end')
+        # Если текущий текст не равен последнему сохраненному состоянию
+        if curr_text != history_stack[-1]:
+            # Сохранение текущего состояния текстового поля
+            save_history()
+        # Удаление текущего состояния текстового поля из стека
+        history_stack.pop()
+        # Получение предыдущего состояния текстового поля
+        prev_text = history_stack[-1]
+        # Установка предыдущего состояния текстового поля
+        text_field.delete('1.0', 'end')
+        text_field.insert('1.0', prev_text)
+
+# Добавление текущего состояния текстового поля в стек при изменении текста
+text_field.bind("<KeyRelease>", lambda event: save_history())
+
+def on_key_press(event):
+    if event.state == 4 and event.keysym == 'z':
+        undo_last_action()
+
+# Сохранение начального состояния текстового поля
+save_history()
+
+# Привязка функции on_key_press к событию нажатия клавиши
+text_field.bind('<Key>', on_key_press)
+
 # Создание кнопки сохранения файла
 save_button = Button(root, text='Сохранить', command=save_file)
 save_button.pack(side=LEFT)
@@ -125,22 +162,50 @@ def search_text():
     search_string = search_entry.get()
     if search_string:
         start_pos = '1.0'
+        positions = []
         while True:
             # Поиск вхождений заданного текста в текстовом поле
-            start_pos = text_field.search(search_string, start_pos, stopindex=END)
-            if not start_pos:
+            search_index = text_field.search(search_string, start_pos, stopindex=END)
+            if not search_index:
                 break
-            end_pos = f'{start_pos}+{len(search_string)}c'
-            # Выделение найденного текста в зеленый цвет
-            text_field.tag_add('found', start_pos, end_pos)
-            text_field.tag_configure('found', foreground='green')
+            end_pos = f"{search_index}+{len(search_string)}c"
+            positions.append(search_index)
+            text_field.tag_add("search", search_index, end_pos)
             start_pos = end_pos
+        if positions:
+            text_field.tag_config("search", background="green", foreground="white")
+            text_field.focus_set()
+            text_field.tag_raise("search")
+            return positions
+        else:
+            messagebox.showinfo("Нет совпадений", "Не удалось найти совпадения.")
+
+def highlight_next(delta):
+    search_string = search_entry.get()
+    if search_string:
+        if not hasattr(highlight_next, "positions"):
+            highlight_next.positions = search_text()
+            if not highlight_next.positions:
+                return
+            highlight_next.current = -1
+        highlight_next.current = (highlight_next.current + delta) % len(highlight_next.positions)
+        pos = highlight_next.positions[highlight_next.current]
+        text_field.tag_remove("current", "1.0", END)
+        text_field.tag_add("current", pos, f"{pos}+{len(search_string)}c")
+        text_field.focus_set()
+        text_field.tag_raise("current")
+
+def search(event=None):
+    search_text()
+
+root.bind('<Control-f>', search)
 
 # Создание поля ввода и кнопки "поиск"
-search_frame = Frame(root)
-search_frame.pack(fill=X)
+search_frame = Frame(root, bg='lightgray', height=30)
+search_frame.pack(side=TOP, fill=X)
+search_frame.place(relx=1.0, y=0, anchor=NE)
 
-search_entry = Entry(search_frame)
+search_entry = Entry(search_frame, bg='white', width=30)
 search_entry.pack(side=LEFT, padx=5)
 
 search_button = Button(search_frame, text='Найти', command=search_text)
